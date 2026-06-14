@@ -1,0 +1,5 @@
+node_modules/
+*.sdPlugin/bin/
+*.sdPlugin/logs/
+companion/node_modules/
+.DS_Store

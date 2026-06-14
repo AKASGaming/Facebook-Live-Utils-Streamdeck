@@ -1,0 +1,32 @@
+{
+	"manifest_version": 3,
+	"name": "Live Pin Bridge",
+	"description": "Connects your browser to the Live Pin Utils bridge for pinned link control.",
+	"version": "0.1.0",
+	"permissions": ["storage"],
+	"host_permissions": [
+		"http://127.0.0.1:9742/*",
+		"https://www.facebook.com/*",
+		"https://facebook.com/*",
+		"https://m.facebook.com/*",
+		"https://www.meta.com/*"
+	],
+	"background": {
+		"service_worker": "background.js",
+		"type": "module"
+	},
+	"content_scripts": [
+		{
+			"matches": [
+				"https://www.facebook.com/*",
+				"https://facebook.com/*",
+				"https://m.facebook.com/*"
+			],
+			"js": ["content.js"],
+			"run_at": "document_idle"
+		}
+	],
+	"action": {
+		"default_title": "Live Pin Bridge"
+	}
+}

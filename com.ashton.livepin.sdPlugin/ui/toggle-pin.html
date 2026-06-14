@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+    <title>Toggle Pin Link</title>
+    <meta charset="utf-8" />
+    <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+    <style>
+        .link-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: 100%;
+        }
+
+        .link-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .hint {
+            color: var(--sdpi-color);
+            font-size: 11px;
+            opacity: 0.8;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <sdpi-item label="Bridge URL">
+        <sdpi-textfield setting="bridgeUrl" placeholder="http://127.0.0.1:9742" global></sdpi-textfield>
+    </sdpi-item>
+
+    <sdpi-item label="Link">
+        <sdpi-select
+            setting="linkId"
+            datasource="getLinks"
+            loading="Loading links..."
+            hot-reload
+            placeholder="Choose a link">
+        </sdpi-select>
+    </sdpi-item>
+
+    <sdpi-item label="Links">
+        <div class="link-list" id="linksEditor"></div>
+        <button type="button" class="sdpi-item-value" id="addLinkButton">Add Link</button>
+        <div class="hint">Configure the links available in the dropdown. Start the companion bridge before going live.</div>
+    </sdpi-item>
+
+    <script>
+        const $SD = window.$SD;
+        const linksEditor = document.getElementById("linksEditor");
+        const addLinkButton = document.getElementById("addLinkButton");
+
+        let globalSettings = { links: [] };
+
+        function createId() {
+            return `link-${Date.now().toString(36)}`;
+        }
+
+        function renderLinksEditor() {
+            linksEditor.innerHTML = "";
+            const links = globalSettings.links ?? [];
+
+            if (links.length === 0) {
+                const empty = document.createElement("div");
+                empty.className = "hint";
+                empty.textContent = "No links configured yet.";
+                linksEditor.appendChild(empty);
+                return;
+            }
+
+            links.forEach((link, index) => {
+                const row = document.createElement("div");
+                row.className = "link-row";
+
+                const nameInput = document.createElement("input");
+                nameInput.type = "text";
+                nameInput.className = "sdpi-item-value";
+                nameInput.placeholder = "Link name";
+                nameInput.value = link.name ?? "";
+                nameInput.addEventListener("input", () => {
+                    links[index].name = nameInput.value;
+                    persistGlobalSettings();
+                });
+
+                const removeButton = document.createElement("button");
+                removeButton.type = "button";
+                removeButton.className = "sdpi-item-value";
+                removeButton.textContent = "Remove";
+                removeButton.addEventListener("click", () => {
+                    links.splice(index, 1);
+                    globalSettings.links = links;
+                    persistGlobalSettings();
+                    renderLinksEditor();
+                });
+
+                row.appendChild(nameInput);
+                row.appendChild(removeButton);
+                linksEditor.appendChild(row);
+
+                const urlInput = document.createElement("input");
+                urlInput.type = "text";
+                urlInput.className = "sdpi-item-value";
+                urlInput.placeholder = "https://your-store.com/live";
+                urlInput.value = link.url ?? "";
+                urlInput.addEventListener("input", () => {
+                    links[index].url = urlInput.value;
+                    persistGlobalSettings();
+                });
+                linksEditor.appendChild(urlInput);
+
+                const messageInput = document.createElement("input");
+                messageInput.type = "text";
+                messageInput.className = "sdpi-item-value";
+                messageInput.placeholder = "Comment text (optional)";
+                messageInput.value = link.message ?? "";
+                messageInput.addEventListener("input", () => {
+                    links[index].message = messageInput.value;
+                    persistGlobalSettings();
+                });
+                linksEditor.appendChild(messageInput);
+            });
+        }
+
+        function persistGlobalSettings() {
+            if (!$SD) {
+                return;
+            }
+
+            $SD.setGlobalSettings(globalSettings);
+        }
+
+        addLinkButton.addEventListener("click", () => {
+            const links = globalSettings.links ?? [];
+            links.push({
+                id: createId(),
+                name: `Link ${links.length + 1}`,
+                url: "",
+                message: "",
+            });
+            globalSettings.links = links;
+            persistGlobalSettings();
+            renderLinksEditor();
+        });
+
+        if ($SD) {
+            $SD.onConnected(({ payload }) => {
+                globalSettings = {
+                    links: [],
+                    ...(payload?.settings ?? {}),
+                };
+                renderLinksEditor();
+            });
+
+            $SD.onDidReceiveGlobalSettings(({ payload }) => {
+                globalSettings = {
+                    links: [],
+                    ...(payload?.settings ?? {}),
+                };
+                renderLinksEditor();
+            });
+        }
+    </script>
+</body>
+
+</html>

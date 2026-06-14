@@ -1,0 +1,48 @@
+{
+	"Name": "Live Pin Utils",
+	"Version": "0.1.0.0",
+	"Author": "Ashton",
+	"Actions": [
+		{
+			"Name": "Toggle Pin Link",
+			"UUID": "com.ashton.livepin.toggle",
+			"Icon": "imgs/actions/toggle-pin/icon",
+			"Tooltip": "Toggle a pinned link in your live stream.",
+			"PropertyInspectorPath": "ui/toggle-pin.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/toggle-pin/key",
+					"TitleAlignment": "bottom"
+				}
+			]
+		}
+	],
+	"Category": "Live Pin Utils",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"CodePath": "bin/plugin.js",
+	"Description": "Toggle pinned links in your live stream from Stream Deck.",
+	"Icon": "imgs/plugin/marketplace",
+	"URL": "https://github.com/AKASGaming/Facebook-Live-Utils-Streamdeck",
+	"SDKVersion": 3,
+	"Software": {
+		"MinimumVersion": "7.1"
+	},
+	"OS": [
+		{
+			"Platform": "mac",
+			"MinimumVersion": "12"
+		},
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		}
+	],
+	"Nodejs": {
+		"Version": "20",
+		"Debug": "enabled"
+	},
+	"UUID": "com.ashton.livepin"
+}
