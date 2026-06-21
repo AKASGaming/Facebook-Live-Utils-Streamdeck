@@ -9,6 +9,12 @@ const targets = [
 	"plugin/category-icon",
 	"actions/toggle-pin/icon",
 	"actions/toggle-pin/key",
+	"actions/link-menu/icon",
+	"actions/link-menu/key",
+	"actions/menu-item/icon",
+	"actions/menu-item/key",
+	"actions/menu-back/icon",
+	"actions/menu-back/key",
 ];
 
 function crc32(buffer) {
@@ -75,8 +81,19 @@ function writeIcon(relativePath, color) {
 	fs.writeFileSync(path.join(root, `${relativePath}@2x.png`), createPng(144, 144, color));
 }
 
+const colors = {
+	default: [52, 120, 246, 255],
+	menu: [16, 185, 129, 255],
+	back: [100, 116, 139, 255],
+};
+
 for (const target of targets) {
-	writeIcon(target, [52, 120, 246, 255]);
+	const color = target.includes("menu-back")
+		? colors.back
+		: target.includes("menu") || target.includes("link-menu")
+			? colors.menu
+			: colors.default;
+	writeIcon(target, color);
 }
 
 console.log("Generated Stream Deck icons.");

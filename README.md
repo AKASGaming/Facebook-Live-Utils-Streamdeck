@@ -30,6 +30,7 @@ git clone https://github.com/AKASGaming/Facebook-Live-Utils-Streamdeck.git
 cd Facebook-Live-Utils-Streamdeck
 npm install
 npm run icons
+npm run profiles
 npm run build
 ```
 
@@ -72,6 +73,20 @@ After updates, click **Reload** on the extension card.
 
 You can add multiple Stream Deck buttons, each assigned to a different link.
 
+#### Pin Link Menu (Krabs-style folder)
+
+Instead of assigning one link per button, you can use **Pin Link Menu**:
+
+1. Drag **Pin Link Menu** onto a key on your main profile
+2. Press it during a stream — the plugin refreshes links from Live Producer and switches to a bundled menu profile
+3. Each key shows a link title (currently pinned links are marked **PINNED**)
+4. Press a link key to pin that link
+5. Press **BACK** (top-left) to return to your previous profile
+
+The menu supports up to **14 links** on a standard Stream Deck (15-key) and **31 links** on Stream Deck XL. Extra keys stay blank if you have fewer links.
+
+Both **Toggle Pin Link** and **Pin Link Menu** share the same bridge URL setting in the property inspector.
+
 ### 6. Go live
 
 1. Start your Facebook Live stream as usual
@@ -82,20 +97,28 @@ If a different link is already pinned, the extension unpins it first, then pins 
 
 ## Updating an existing install
 
+From your project folder:
+
 ```powershell
 cd Facebook-Live-Utils-Streamdeck
 git pull
 npm install
-npm run build
+npm run prepare:plugin
 cd companion
 npm install
 ```
 
-Then:
+`npm run prepare:plugin` regenerates icons, menu profiles, and the plugin bundle in one step. You can run the steps separately instead if you prefer: `npm run icons`, then `npm run profiles`, then `npm run build`.
 
-1. **Reload the extension** at `chrome://extensions` (click the reload icon on Live Pin Bridge)
+Then apply the update:
+
+1. **Reload the browser extension** at `chrome://extensions` (click the reload icon on Live Pin Bridge)
 2. **Restart the bridge** — stop the old terminal (`Ctrl+C`), then run `npm start` again in `companion/`
-3. **Restart the Stream Deck plugin** — either restart Stream Deck, or run `streamdeck restart com.ashton.livepin` from the project root after building
+3. **Restart the Stream Deck plugin** — from the project root, run `streamdeck restart com.ashton.livepin`, or restart the Stream Deck app entirely
+
+If you linked the plugin with `streamdeck link`, a rebuild is enough — Stream Deck picks up changes after the restart in step 3. If the plugin does not update, run `streamdeck link "com.ashton.livepin.sdPlugin"` again from the repo root.
+
+**New in recent versions:** **Pin Link Menu** appears in the Live Pin Utils action list after updating. Drag it onto a key to open a full-page menu of links from Live Producer (see [Pin Link Menu](#pin-link-menu-krabs-style-folder) above). Existing **Toggle Pin Link** buttons keep working as before.
 
 ## Development
 

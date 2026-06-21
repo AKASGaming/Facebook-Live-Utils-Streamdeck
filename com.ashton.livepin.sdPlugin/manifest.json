@@ -18,6 +18,54 @@
 					"TitleAlignment": "bottom"
 				}
 			]
+		},
+		{
+			"Name": "Pin Link Menu",
+			"UUID": "com.ashton.livepin.menu",
+			"Icon": "imgs/actions/link-menu/icon",
+			"Tooltip": "Open a menu of all available links from Live Producer.",
+			"PropertyInspectorPath": "ui/toggle-pin.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/link-menu/key",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Pin Link Menu Item",
+			"UUID": "com.ashton.livepin.menu-item",
+			"Icon": "imgs/actions/menu-item/icon",
+			"Tooltip": "Pin this link in your live stream.",
+			"VisibleInActionsList": false,
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/menu-item/key",
+					"TitleAlignment": "bottom"
+				}
+			]
+		},
+		{
+			"Name": "Back",
+			"UUID": "com.ashton.livepin.menu-back",
+			"Icon": "imgs/actions/menu-back/icon",
+			"Tooltip": "Return to your previous profile.",
+			"VisibleInActionsList": false,
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/menu-back/key",
+					"TitleAlignment": "middle"
+				}
+			]
 		}
 	],
 	"Category": "Live Pin Utils",
@@ -44,5 +92,19 @@
 		"Version": "20",
 		"Debug": "enabled"
 	},
-	"UUID": "com.ashton.livepin"
+	"UUID": "com.ashton.livepin",
+	"Profiles": [
+		{
+			"Name": "menu-sd",
+			"DeviceType": 0,
+			"Readonly": true,
+			"DontAutoSwitchWhenInstalled": true
+		},
+		{
+			"Name": "menu-sdxl",
+			"DeviceType": 2,
+			"Readonly": true,
+			"DontAutoSwitchWhenInstalled": true
+		}
+	]
 }

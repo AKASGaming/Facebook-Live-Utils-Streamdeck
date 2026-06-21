@@ -7,6 +7,8 @@
         "build": "rollup -c",
         "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.ashton.livepin\"",
         "icons": "node scripts/generate-icons.mjs",
+        "profiles": "node scripts/generate-menu-profile.mjs",
+        "prepare:plugin": "npm run icons && npm run profiles && npm run build",
         "build:companion": "npm --prefix companion run build"
     },
     "devDependencies": {

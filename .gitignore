@@ -1,5 +1,6 @@
 node_modules/
 *.sdPlugin/bin/
 *.sdPlugin/logs/
+*.sdPlugin/.profile-build/
 companion/node_modules/
 .DS_Store
