@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+    <title>Pin Link Menu</title>
+    <meta charset="utf-8" />
+    <script src="https://sdpi-components.dev/releases/v4/sdpi-components.js"></script>
+    <style>
+        .hint {
+            color: var(--sdpi-color);
+            font-size: 11px;
+            opacity: 0.85;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+
+<body>
+    <sdpi-item label="Bridge URL">
+        <sdpi-textfield setting="bridgeUrl" placeholder="http://127.0.0.1:9742" global></sdpi-textfield>
+    </sdpi-item>
+
+    <sdpi-item label="How it works">
+        <div class="hint">
+            No link selection is needed here. Press the button to refresh links from Live Producer and open the menu profile.
+            Keep the bridge running, reload the extension after updates, and leave Live Producer open with the Links tab visible.
+        </div>
+    </sdpi-item>
+</body>
+
+</html>

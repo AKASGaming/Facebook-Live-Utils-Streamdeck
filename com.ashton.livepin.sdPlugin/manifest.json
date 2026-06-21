@@ -24,7 +24,7 @@
 			"UUID": "com.ashton.livepin.menu",
 			"Icon": "imgs/actions/link-menu/icon",
 			"Tooltip": "Open a menu of all available links from Live Producer.",
-			"PropertyInspectorPath": "ui/toggle-pin.html",
+			"PropertyInspectorPath": "ui/link-menu.html",
 			"Controllers": [
 				"Keypad"
 			],
@@ -97,14 +97,37 @@
 		{
 			"Name": "menu-sd",
 			"DeviceType": 0,
-			"Readonly": true,
-			"DontAutoSwitchWhenInstalled": true
+			"Readonly": false,
+			"DontAutoSwitchWhenInstalled": true,
+			"AutoInstall": true
+		},
+		{
+			"Name": "menu-sdmini",
+			"DeviceType": 1,
+			"Readonly": false,
+			"DontAutoSwitchWhenInstalled": true,
+			"AutoInstall": true
 		},
 		{
 			"Name": "menu-sdxl",
 			"DeviceType": 2,
-			"Readonly": true,
-			"DontAutoSwitchWhenInstalled": true
+			"Readonly": false,
+			"DontAutoSwitchWhenInstalled": true,
+			"AutoInstall": true
+		},
+		{
+			"Name": "menu-sdp",
+			"DeviceType": 7,
+			"Readonly": false,
+			"DontAutoSwitchWhenInstalled": true,
+			"AutoInstall": true
+		},
+		{
+			"Name": "menu-sdneo",
+			"DeviceType": 9,
+			"Readonly": false,
+			"DontAutoSwitchWhenInstalled": true,
+			"AutoInstall": true
 		}
 	]
 }

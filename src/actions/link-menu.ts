@@ -1,10 +1,14 @@
-import streamDeck, { action, KeyDownEvent, SingletonAction } from "@elgato/streamdeck";
+import streamDeck, { action, KeyDownEvent, SingletonAction, WillAppearEvent } from "@elgato/streamdeck";
 
 import { getBridgeUrl } from "../api/bridge.js";
 import { getMenuProfileName, loadMenuLinks, populateMenuItems } from "./menu-utils.js";
 
 @action({ UUID: "com.ashton.livepin.menu" })
 export class LinkMenu extends SingletonAction {
+	override async onWillAppear(ev: WillAppearEvent): Promise<void> {
+		await ev.action.setTitle("Links");
+	}
+
 	override async onKeyDown(ev: KeyDownEvent): Promise<void> {
 		try {
 			const status = await loadMenuLinks(await getBridgeUrl());

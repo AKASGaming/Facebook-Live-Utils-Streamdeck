@@ -78,14 +78,15 @@ You can add multiple Stream Deck buttons, each assigned to a different link.
 Instead of assigning one link per button, you can use **Pin Link Menu**:
 
 1. Drag **Pin Link Menu** onto a key on your main profile
-2. Press it during a stream — the plugin refreshes links from Live Producer and switches to a bundled menu profile
-3. Each key shows a link title (currently pinned links are marked **PINNED**)
-4. Press a link key to pin that link
-5. Press **BACK** (top-left) to return to your previous profile
+2. When prompted, install the bundled **Pin Links** profile for your device (required once per device type)
+3. Press the button during a stream — the plugin refreshes links from Live Producer and switches to the menu profile
+4. Each key shows a link title (currently pinned links are marked **PINNED**)
+5. Press a link key to pin that link
+6. Press **BACK** (top-left) to return to your previous profile
 
-The menu supports up to **14 links** on a standard Stream Deck (15-key) and **31 links** on Stream Deck XL. Extra keys stay blank if you have fewer links.
+The menu supports up to **14 links** on a standard Stream Deck, **31** on XL, **7** on Plus/Neo, and **5** on Mini. Extra keys stay blank if you have fewer links.
 
-Both **Toggle Pin Link** and **Pin Link Menu** share the same bridge URL setting in the property inspector.
+Both **Toggle Pin Link** and **Pin Link Menu** share the same bridge URL setting in the property inspector. The menu action does not use the link dropdown — links load automatically when you press the button.
 
 ### 6. Go live
 
@@ -115,10 +116,18 @@ Then apply the update:
 1. **Reload the browser extension** at `chrome://extensions` (click the reload icon on Live Pin Bridge)
 2. **Restart the bridge** — stop the old terminal (`Ctrl+C`), then run `npm start` again in `companion/`
 3. **Restart the Stream Deck plugin** — from the project root, run `streamdeck restart com.ashton.livepin`, or restart the Stream Deck app entirely
+4. **Reinstall the Pin Links profile** if you use **Pin Link Menu** — Stream Deck may prompt you again after the update. Accept the install prompt for your device. If nothing happens, unlink and re-link the plugin:
 
-If you linked the plugin with `streamdeck link`, a rebuild is enough — Stream Deck picks up changes after the restart in step 3. If the plugin does not update, run `streamdeck link "com.ashton.livepin.sdPlugin"` again from the repo root.
+```powershell
+streamdeck unlink com.ashton.livepin
+streamdeck link "com.ashton.livepin.sdPlugin"
+```
 
-**New in recent versions:** **Pin Link Menu** appears in the Live Pin Utils action list after updating. Drag it onto a key to open a full-page menu of links from Live Producer (see [Pin Link Menu](#pin-link-menu-krabs-style-folder) above). Existing **Toggle Pin Link** buttons keep working as before.
+Restart Stream Deck, then accept the **Pin Links** profile install when prompted.
+
+If you linked the plugin with `streamdeck link`, a rebuild is enough for most changes — Stream Deck picks up updates after the restart in step 3. If the plugin does not update at all, run `streamdeck link "com.ashton.livepin.sdPlugin"` again from the repo root.
+
+**Pin Link Menu:** Drag **Pin Link Menu** onto a key to open a full-page menu of links from Live Producer (see [Pin Link Menu](#pin-link-menu-krabs-style-folder) above). It does not use the link dropdown — links load when you press the button. Existing **Toggle Pin Link** buttons keep working as before.
 
 ## Development
 
@@ -145,6 +154,9 @@ Project layout:
 | Button shows **Error** | Make sure `companion/server.js` is running |
 | **Browser extension not connected** | Reload the extension; confirm the bridge is running; keep Live Producer tab open |
 | Dropdown is empty | Open Live Producer, expand **Featured**, select the **Links** tab, then reopen the property inspector |
+| **Pin Link Menu** shows a link dropdown that never loads | Update to the latest build — the menu uses its own settings panel and does not need a dropdown |
+| **Pin Links profile install does nothing** | Run `npm install`, then `npm run prepare:plugin`, restart the plugin, and accept the install prompt. If it still fails, run `streamdeck unlink com.ashton.livepin` then `streamdeck link "com.ashton.livepin.sdPlugin"` and restart Stream Deck |
+| Menu button flashes alert | Install the **Pin Links** profile when prompted, or check that the bridge and Live Producer tab are open |
 | **Link not found in Live Producer** | Ensure the Links panel is expanded and links are listed with Pin buttons |
 | Extension disconnects often | Update to latest version — the WebSocket now runs in the content script (tab must stay open) |
 | Linking fails (no Plugins folder) | Install Stream Deck desktop app first |

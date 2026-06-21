@@ -1,4 +1,5 @@
 import type { Device, KeyAction } from "@elgato/streamdeck";
+import { DeviceType } from "@elgato/streamdeck";
 
 import { refreshBridgeLinks } from "../api/bridge.js";
 import { getMenuLink, getMenuPinnedLinkId, setMenuLinks, shortLinkName } from "../link-menu-state.js";
@@ -7,13 +8,20 @@ import type { MenuLinkItem } from "./menu-item.js";
 
 let menuLinkItemController: MenuLinkItem | undefined;
 
+const PROFILE_BY_DEVICE: Partial<Record<DeviceType, string>> = {
+	[DeviceType.StreamDeck]: "menu-sd",
+	[DeviceType.StreamDeckMini]: "menu-sdmini",
+	[DeviceType.StreamDeckXL]: "menu-sdxl",
+	[DeviceType.StreamDeckPlus]: "menu-sdp",
+	[DeviceType.StreamDeckNeo]: "menu-sdneo",
+};
+
 export function setMenuLinkItemController(controller: MenuLinkItem): void {
 	menuLinkItemController = controller;
 }
 
 export function getMenuProfileName(device: Device): string {
-	const { columns, rows } = device.size;
-	return columns * rows > 15 ? "menu-sdxl" : "menu-sd";
+	return PROFILE_BY_DEVICE[device.type] ?? "menu-sd";
 }
 
 export async function loadMenuLinks(bridgeUrl: string): Promise<{ links: PinLink[]; pinnedLinkId: string | null }> {

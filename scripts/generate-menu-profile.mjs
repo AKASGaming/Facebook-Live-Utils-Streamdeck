@@ -1,9 +1,18 @@
-import { execSync } from "node:child_process";
+import { ZipArchive } from "archiver";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { createWriteStream } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const PLUGIN_DIR = "com.ashton.livepin.sdPlugin";
+
+const PROFILES = [
+	{ name: "menu-sd", columns: 5, rows: 3, deviceModel: "20GAA9901" },
+	{ name: "menu-sdmini", columns: 3, rows: 2, deviceModel: "20GAI9901" },
+	{ name: "menu-sdxl", columns: 8, rows: 4, deviceModel: "20GAT9901" },
+	{ name: "menu-sdp", columns: 4, rows: 2, deviceModel: "20GBD9901" },
+	{ name: "menu-sdneo", columns: 4, rows: 2, deviceModel: "20GBJ9901" },
+];
 
 function gridPositions(columns, rows, skip = [{ column: 0, row: 0 }]) {
 	const positions = [];
@@ -60,7 +69,22 @@ function backAction() {
 	};
 }
 
-function buildProfile({ name, columns, rows, deviceModel }) {
+async function zipProfile(profileRoot, folderName, outputPath) {
+	await new Promise((resolve, reject) => {
+		const output = createWriteStream(outputPath);
+		const archive = new ZipArchive({ zlib: { level: 9 } });
+
+		output.on("close", resolve);
+		archive.on("error", reject);
+		output.on("error", reject);
+
+		archive.pipe(output);
+		archive.directory(profileRoot, folderName);
+		archive.finalize();
+	});
+}
+
+async function buildProfile({ name, columns, rows, deviceModel }) {
 	const profileBundleId = randomUUID().toUpperCase();
 	const pageId = randomUUID();
 	const folderName = `${profileBundleId}.sdProfile`;
@@ -102,27 +126,15 @@ function buildProfile({ name, columns, rows, deviceModel }) {
 		}),
 	);
 
-	const zipPath = join(buildRoot, `${name}.zip`);
 	const outputPath = join(PLUGIN_DIR, `${name}.streamDeckProfile`);
 
 	rmSync(outputPath, { force: true });
-	execSync(`powershell -NoProfile -Command "Compress-Archive -LiteralPath '${profileRoot}' -DestinationPath '${zipPath}' -Force"`);
-	renameSync(zipPath, outputPath);
+	await zipProfile(profileRoot, folderName, outputPath);
 	rmSync(buildRoot, { recursive: true, force: true });
 
 	console.log(`Generated ${outputPath} (${columns * rows - 1} link slots)`);
 }
 
-buildProfile({
-	name: "menu-sd",
-	columns: 5,
-	rows: 3,
-	deviceModel: "20GAA9901",
-});
-
-buildProfile({
-	name: "menu-sdxl",
-	columns: 8,
-	rows: 4,
-	deviceModel: "20GAT9901",
-});
+for (const profile of PROFILES) {
+	await buildProfile(profile);
+}
