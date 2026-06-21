@@ -13,10 +13,13 @@ export class LinkMenu extends SingletonAction {
 		try {
 			const status = await loadMenuLinks(await getBridgeUrl());
 			await populateMenuItems(status.links, status.pinnedLinkId);
-			await streamDeck.profiles.switchToProfile(ev.action.device.id, getMenuProfileName(ev.action.device));
+			const profileName = getMenuProfileName(ev.action.device);
+			streamDeck.logger.info(`Switching to menu profile: ${profileName} for device type ${ev.action.device.type}`);
+			await streamDeck.profiles.switchToProfile(ev.action.device.id, profileName);
 			await ev.action.showOk();
 		} catch (error) {
 			streamDeck.logger.error(`Failed to open link menu: ${error}`);
+			await ev.action.setTitle("Install profile");
 			await ev.action.showAlert();
 		}
 	}

@@ -99,35 +99,35 @@
 			"DeviceType": 0,
 			"Readonly": false,
 			"DontAutoSwitchWhenInstalled": true,
-			"AutoInstall": true
+			"AutoInstall": false
 		},
 		{
 			"Name": "menu-sdmini",
 			"DeviceType": 1,
 			"Readonly": false,
 			"DontAutoSwitchWhenInstalled": true,
-			"AutoInstall": true
+			"AutoInstall": false
 		},
 		{
 			"Name": "menu-sdxl",
 			"DeviceType": 2,
 			"Readonly": false,
 			"DontAutoSwitchWhenInstalled": true,
-			"AutoInstall": true
+			"AutoInstall": false
 		},
 		{
 			"Name": "menu-sdp",
 			"DeviceType": 7,
 			"Readonly": false,
 			"DontAutoSwitchWhenInstalled": true,
-			"AutoInstall": true
+			"AutoInstall": false
 		},
 		{
 			"Name": "menu-sdneo",
 			"DeviceType": 9,
 			"Readonly": false,
 			"DontAutoSwitchWhenInstalled": true,
-			"AutoInstall": true
+			"AutoInstall": false
 		}
 	]
 }
