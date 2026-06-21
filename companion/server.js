@@ -2,8 +2,9 @@ import http from "node:http";
 import { WebSocketServer } from "ws";
 
 const PORT = Number(process.env.LIVE_PIN_BRIDGE_PORT ?? 9742);
+const PING_INTERVAL_MS = 15000;
 
-/** @type {Map<string, { id: string; name: string; url: string; message?: string }>} */
+/** @type {Map<string, { id: string; name: string; url: string; pinned?: boolean }>} */
 const links = new Map();
 
 /** @type {string | null} */
@@ -46,66 +47,70 @@ function sendJson(res, status, body) {
 }
 
 /**
- * @param {{ id: string; name: string; url: string; message?: string }} link
+ * @param {Array<{ id: string; name: string; url: string; pinned?: boolean }>} incoming
  */
-function upsertLink(link) {
-	if (!link?.id) {
-		return;
+function replaceLinks(incoming) {
+	links.clear();
+
+	for (const link of incoming) {
+		if (!link?.id || !link?.url) {
+			continue;
+		}
+
+		links.set(link.id, {
+			id: link.id,
+			name: link.name ?? link.url,
+			url: link.url,
+			pinned: !!link.pinned,
+		});
 	}
 
-	links.set(link.id, {
-		id: link.id,
-		name: link.name ?? link.id,
-		url: link.url ?? "",
-		message: link.message ?? "",
-	});
+	const pinned = incoming.find((link) => link.pinned);
+	pinnedLinkId = pinned?.id ?? null;
+}
+
+function getStatusPayload() {
+	return {
+		connected: extensionSocket?.readyState === extensionSocket?.OPEN,
+		pinnedLinkId,
+		links: [...links.values()].map((link) => ({
+			...link,
+			pinned: pinnedLinkId === link.id,
+		})),
+	};
 }
 
 /**
- * @returns {Promise<{ success: boolean; pinned: boolean; linkId: string; error?: string }>}
+ * @param {string} type
+ * @param {Record<string, unknown>} payload
+ * @param {number} timeoutMs
  */
-async function forwardToggle(linkId) {
-	const link = links.get(linkId);
-
-	if (!link) {
-		return { success: false, pinned: false, linkId, error: "Unknown link" };
-	}
-
+function forwardToExtension(type, payload, timeoutMs = 12000) {
 	if (!extensionSocket || extensionSocket.readyState !== extensionSocket.OPEN) {
-		return { success: false, pinned: false, linkId, error: "Browser extension not connected" };
+		return Promise.resolve({ success: false, error: "Browser extension not connected" });
 	}
 
 	return new Promise((resolve) => {
-		const requestId = `toggle-${Date.now()}`;
+		const requestId = `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 		const timeout = setTimeout(() => {
 			cleanup();
-			resolve({ success: false, pinned: pinnedLinkId === linkId, linkId, error: "Timed out waiting for browser" });
-		}, 12000);
+			resolve({ success: false, error: "Timed out waiting for browser" });
+		}, timeoutMs);
 
 		/**
 		 * @param {import("ws").RawData} raw
 		 */
 		const onMessage = (raw) => {
 			try {
-				const payload = JSON.parse(raw.toString());
+				const message = JSON.parse(raw.toString());
 
-				if (payload.requestId !== requestId) {
+				if (message.requestId !== requestId) {
 					return;
 				}
 
 				cleanup();
-
-				if (payload.success) {
-					pinnedLinkId = payload.pinned ? linkId : null;
-				}
-
-				resolve({
-					success: !!payload.success,
-					pinned: !!payload.pinned,
-					linkId,
-					error: payload.error,
-				});
+				resolve(message);
 			} catch {
 				// Ignore malformed messages.
 			}
@@ -117,15 +122,13 @@ async function forwardToggle(linkId) {
 		};
 
 		extensionSocket.on("message", onMessage);
-		extensionSocket.send(
-			JSON.stringify({
-				type: "toggle",
-				requestId,
-				link,
-				currentPinnedLinkId: pinnedLinkId,
-			}),
-		);
+		extensionSocket.send(JSON.stringify({ type, requestId, ...payload }));
 	});
+}
+
+async function refreshLinksFromPage() {
+	await forwardToExtension("refreshLinks", {}, 8000);
+	return getStatusPayload();
 }
 
 const server = http.createServer(async (req, res) => {
@@ -138,36 +141,22 @@ const server = http.createServer(async (req, res) => {
 		const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
 
 		if (req.method === "GET" && url.pathname === "/api/status") {
-			sendJson(res, 200, {
-				connected: extensionSocket?.readyState === extensionSocket?.OPEN,
-				pinnedLinkId,
-				links: [...links.values()].map((link) => ({
-					...link,
-					pinned: pinnedLinkId === link.id,
-				})),
-			});
+			if (url.searchParams.get("refresh") === "1") {
+				sendJson(res, 200, await refreshLinksFromPage());
+				return;
+			}
+
+			sendJson(res, 200, getStatusPayload());
 			return;
 		}
 
-		if (req.method === "POST" && url.pathname === "/api/links/sync") {
-			const body = await readJson(req);
-			const incoming = Array.isArray(body.links) ? body.links : [];
-
-			for (const link of incoming) {
-				upsertLink(link);
-			}
-
-			sendJson(res, 200, { success: true, count: links.size });
+		if (req.method === "POST" && url.pathname === "/api/links/refresh") {
+			sendJson(res, 200, await refreshLinksFromPage());
 			return;
 		}
 
 		if (req.method === "POST" && url.pathname === "/api/toggle") {
 			const body = await readJson(req);
-
-			if (body.link) {
-				upsertLink(body.link);
-			}
-
 			const linkId = body.linkId;
 
 			if (!linkId) {
@@ -175,8 +164,19 @@ const server = http.createServer(async (req, res) => {
 				return;
 			}
 
-			const result = await forwardToggle(linkId);
-			sendJson(res, result.success ? 200 : 503, result);
+			const link = links.get(linkId);
+			const result = await forwardToExtension("toggle", { linkId, link });
+
+			if (result.success) {
+				pinnedLinkId = result.pinned ? linkId : null;
+			}
+
+			sendJson(res, result.success ? 200 : 503, {
+				success: !!result.success,
+				pinned: !!result.pinned,
+				linkId,
+				error: result.error,
+			});
 			return;
 		}
 
@@ -189,6 +189,10 @@ const server = http.createServer(async (req, res) => {
 const wss = new WebSocketServer({ server, path: "/extension" });
 
 wss.on("connection", (socket) => {
+	if (extensionSocket && extensionSocket.readyState === extensionSocket.OPEN) {
+		extensionSocket.close();
+	}
+
 	extensionSocket = socket;
 	console.log("Browser extension connected");
 
@@ -203,8 +207,15 @@ wss.on("connection", (socket) => {
 		try {
 			const payload = JSON.parse(raw.toString());
 
-			if (payload.type === "status") {
+			if (payload.type === "linksUpdated" && Array.isArray(payload.links)) {
+				replaceLinks(payload.links);
 				pinnedLinkId = payload.pinnedLinkId ?? pinnedLinkId;
+				console.log(`Links updated (${payload.links.length} found, pinned: ${pinnedLinkId ?? "none"})`);
+				return;
+			}
+
+			if (payload.type === "pong") {
+				socket.isAlive = true;
 			}
 		} catch {
 			// Ignore malformed messages.
@@ -212,7 +223,22 @@ wss.on("connection", (socket) => {
 	});
 
 	socket.send(JSON.stringify({ type: "hello", pinnedLinkId }));
+	socket.send(JSON.stringify({ type: "refreshLinks" }));
 });
+
+setInterval(() => {
+	if (!extensionSocket || extensionSocket.readyState !== extensionSocket.OPEN) {
+		return;
+	}
+
+	if (extensionSocket.isAlive === false) {
+		extensionSocket.terminate();
+		return;
+	}
+
+	extensionSocket.isAlive = false;
+	extensionSocket.send(JSON.stringify({ type: "ping" }));
+}, PING_INTERVAL_MS);
 
 server.listen(PORT, "127.0.0.1", () => {
 	console.log(`Live Pin bridge listening on http://127.0.0.1:${PORT}`);

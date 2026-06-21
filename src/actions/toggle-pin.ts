@@ -12,9 +12,7 @@ import {
 	fetchBridgeStatus,
 	findLink,
 	getBridgeUrl,
-	getConfiguredLinks,
-	getGlobalSettings,
-	syncLinksToBridge,
+	refreshBridgeLinks,
 	togglePinnedLink,
 } from "../api/bridge.js";
 import type { PinLink, TogglePinSettings } from "../types.js";
@@ -38,7 +36,7 @@ export class TogglePinLink extends SingletonAction<TogglePinSettings> {
 		const event = ev.payload.event;
 
 		if (event === "getLinks") {
-			const links = await this.resolveLinkOptions();
+			const links = await this.resolveLinkOptions(true);
 			await streamDeck.ui.sendToPropertyInspector({
 				event: "getLinks",
 				items: links.map((link) => ({
@@ -59,14 +57,7 @@ export class TogglePinLink extends SingletonAction<TogglePinSettings> {
 		}
 
 		try {
-			const bridgeUrl = await getBridgeUrl();
-			const globalSettings = await getGlobalSettings();
-			const links = getConfiguredLinks(globalSettings);
-			const link = findLink(links, linkId);
-
-			await syncLinksToBridge(bridgeUrl, links).catch(() => undefined);
-
-			const result = await togglePinnedLink(bridgeUrl, linkId, link);
+			const result = await togglePinnedLink(await getBridgeUrl(), linkId);
 
 			if (!result.success) {
 				throw new Error(result.error ?? "Toggle failed");
@@ -91,20 +82,19 @@ export class TogglePinLink extends SingletonAction<TogglePinSettings> {
 			return;
 		}
 
-		const globalSettings = await getGlobalSettings();
-		const link = findLink(getConfiguredLinks(globalSettings), linkId);
-
-		if (!link) {
-			await ev.action.setTitle("Unknown");
-			return;
-		}
-
 		try {
 			const status = await fetchBridgeStatus(await getBridgeUrl());
+			const link = findLink(status.links, linkId);
+
+			if (!link) {
+				await ev.action.setTitle("Unknown");
+				return;
+			}
+
 			const pinned = status.pinnedLinkId === linkId;
 			await this.updateActionState(ev, linkId, pinned, link.name);
 		} catch {
-			await ev.action.setTitle(this.shortName(link.name));
+			await ev.action.setTitle("Offline");
 		}
 	}
 
@@ -114,9 +104,16 @@ export class TogglePinLink extends SingletonAction<TogglePinSettings> {
 		pinned: boolean,
 		linkName?: string,
 	): Promise<void> {
-		const globalSettings = await getGlobalSettings();
-		const link = findLink(getConfiguredLinks(globalSettings), linkId);
-		const name = linkName ?? link?.name ?? "Link";
+		let name = linkName;
+
+		if (!name) {
+			try {
+				const status = await fetchBridgeStatus(await getBridgeUrl());
+				name = findLink(status.links, linkId)?.name ?? "Link";
+			} catch {
+				name = "Link";
+			}
+		}
 
 		await ev.action.setTitle(`${this.shortName(name)}\n${pinned ? "PINNED" : "OFF"}`);
 	}
@@ -125,36 +122,19 @@ export class TogglePinLink extends SingletonAction<TogglePinSettings> {
 		return name.length > 10 ? `${name.slice(0, 9)}…` : name;
 	}
 
-	private async resolveLinkOptions(): Promise<LinkOption[]> {
-		const globalSettings = await getGlobalSettings();
-		const configuredLinks = getConfiguredLinks(globalSettings);
+	private async resolveLinkOptions(refresh = false): Promise<LinkOption[]> {
+		const bridgeUrl = await getBridgeUrl();
 
 		try {
-			const status = await fetchBridgeStatus(await getBridgeUrl());
-			const merged = new Map<string, PinLink>();
+			const status = refresh ? await refreshBridgeLinks(bridgeUrl) : await fetchBridgeStatus(bridgeUrl, true);
 
-			for (const link of configuredLinks) {
-				merged.set(link.id, link);
-			}
-
-			for (const link of status.links) {
-				merged.set(link.id, {
-					id: link.id,
-					name: link.name,
-					url: link.url,
-					message: link.message,
-				});
-			}
-
-			return [...merged.values()].map((link) => ({
-				label: link.name,
+			return status.links.map((link: PinLink) => ({
+				label: link.pinned ? `${link.name} (pinned)` : link.name,
 				value: link.id,
 			}));
-		} catch {
-			return configuredLinks.map((link) => ({
-				label: link.name,
-				value: link.id,
-			}));
+		} catch (error) {
+			streamDeck.logger.warn(`Failed to load links: ${error}`);
+			return [];
 		}
 	}
 }

@@ -7,11 +7,12 @@ function normalizeBaseUrl(url: string): string {
 	return url.replace(/\/+$/, "");
 }
 
-export async function fetchBridgeStatus(bridgeUrl: string): Promise<BridgeStatus> {
-	const response = await fetch(`${normalizeBaseUrl(bridgeUrl)}/api/status`, {
+export async function fetchBridgeStatus(bridgeUrl: string, refresh = false): Promise<BridgeStatus> {
+	const query = refresh ? "?refresh=1" : "";
+	const response = await fetch(`${normalizeBaseUrl(bridgeUrl)}/api/status${query}`, {
 		method: "GET",
 		headers: { Accept: "application/json" },
-		signal: AbortSignal.timeout(5000),
+		signal: AbortSignal.timeout(refresh ? 12000 : 5000),
 	});
 
 	if (!response.ok) {
@@ -21,14 +22,28 @@ export async function fetchBridgeStatus(bridgeUrl: string): Promise<BridgeStatus
 	return (await response.json()) as BridgeStatus;
 }
 
-export async function togglePinnedLink(bridgeUrl: string, linkId: string, link?: PinLink): Promise<ToggleResult> {
+export async function refreshBridgeLinks(bridgeUrl: string): Promise<BridgeStatus> {
+	const response = await fetch(`${normalizeBaseUrl(bridgeUrl)}/api/links/refresh`, {
+		method: "POST",
+		headers: { Accept: "application/json" },
+		signal: AbortSignal.timeout(12000),
+	});
+
+	if (!response.ok) {
+		throw new Error(`Bridge returned ${response.status}`);
+	}
+
+	return (await response.json()) as BridgeStatus;
+}
+
+export async function togglePinnedLink(bridgeUrl: string, linkId: string): Promise<ToggleResult> {
 	const response = await fetch(`${normalizeBaseUrl(bridgeUrl)}/api/toggle`, {
 		method: "POST",
 		headers: {
 			Accept: "application/json",
 			"Content-Type": "application/json",
 		},
-		body: JSON.stringify({ linkId, link }),
+		body: JSON.stringify({ linkId }),
 		signal: AbortSignal.timeout(15000),
 	});
 
@@ -41,22 +56,6 @@ export async function togglePinnedLink(bridgeUrl: string, linkId: string, link?:
 	return payload;
 }
 
-export async function syncLinksToBridge(bridgeUrl: string, links: PinLink[]): Promise<void> {
-	const response = await fetch(`${normalizeBaseUrl(bridgeUrl)}/api/links/sync`, {
-		method: "POST",
-		headers: {
-			Accept: "application/json",
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify({ links }),
-		signal: AbortSignal.timeout(5000),
-	});
-
-	if (!response.ok) {
-		throw new Error(`Bridge returned ${response.status}`);
-	}
-}
-
 export async function getGlobalSettings(): Promise<GlobalSettings> {
 	const settings = await streamDeck.settings.getGlobalSettings<GlobalSettings>();
 	return settings ?? {};
@@ -65,10 +64,6 @@ export async function getGlobalSettings(): Promise<GlobalSettings> {
 export async function getBridgeUrl(): Promise<string> {
 	const settings = await getGlobalSettings();
 	return settings.bridgeUrl?.trim() || DEFAULT_BRIDGE_URL;
-}
-
-export function getConfiguredLinks(settings: GlobalSettings): PinLink[] {
-	return settings.links ?? [];
 }
 
 export function findLink(links: PinLink[], linkId?: string): PinLink | undefined {

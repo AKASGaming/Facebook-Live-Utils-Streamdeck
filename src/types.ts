@@ -2,12 +2,11 @@ export type PinLink = {
 	id: string;
 	name: string;
 	url: string;
-	message?: string;
+	pinned?: boolean;
 };
 
 export type GlobalSettings = {
 	bridgeUrl?: string;
-	links?: PinLink[];
 };
 
 export type TogglePinSettings = {
