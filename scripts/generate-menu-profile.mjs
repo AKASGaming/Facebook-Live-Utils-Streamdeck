@@ -5,14 +5,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const PLUGIN_DIR = "com.ashton.livepin.sdPlugin";
-const PLUGIN_VERSION = JSON.parse(readFileSync("package.json", "utf8")).version;
 
 const PROFILES = [
-	{ name: "menu-sd", columns: 5, rows: 3, deviceModel: "20GBA9901", deviceName: "Stream Deck MK.2" },
-	{ name: "menu-sdmini", columns: 3, rows: 2, deviceModel: "20GBA9903", deviceName: "Stream Deck Mini" },
-	{ name: "menu-sdxl", columns: 8, rows: 4, deviceModel: "20GBA9911", deviceName: "Stream Deck XL" },
-	{ name: "menu-sdp", columns: 4, rows: 2, deviceModel: "10GBD9901", deviceName: "Stream Deck +" },
-	{ name: "menu-sdneo", columns: 4, rows: 2, deviceModel: "20GBJ9901", deviceName: "Stream Deck Neo" },
+	{ name: "menu-sd", columns: 5, rows: 3, deviceModel: "20GBA9901" },
+	{ name: "menu-sdmini", columns: 3, rows: 2, deviceModel: "20GAI9501" },
+	{ name: "menu-sdxl", columns: 8, rows: 4, deviceModel: "20GAT9902" },
+	{ name: "menu-sdp", columns: 4, rows: 2, deviceModel: "10GBD9901" },
+	{ name: "menu-sdneo", columns: 4, rows: 2, deviceModel: "20GBD9901" },
 ];
 
 function randomPageId() {
@@ -62,11 +61,6 @@ function pluginAction(name, uuid, settings = {}) {
 		ActionID: randomUUID(),
 		LinkedTitle: true,
 		Name: name,
-		Plugin: {
-			Name: name,
-			UUID: uuid,
-			Version: PLUGIN_VERSION,
-		},
 		Settings: settings,
 		State: 0,
 		States: textState(name === "Back" ? "middle" : "bottom"),
@@ -112,7 +106,7 @@ function packProfile(profileRoot, outputPath) {
 	zip.writeZip(outputPath);
 }
 
-function validateProfile(outputPath, expectedSlots) {
+function validateProfile(outputPath, expectedSlots, profileName) {
 	const zip = new AdmZip(outputPath);
 	const extractDir = join(tmpdir(), `livepin-profile-validate-${randomUUID()}`);
 
@@ -149,12 +143,24 @@ function validateProfile(outputPath, expectedSlots) {
 		if (!keypad.Actions["0,0"] || keypad.Actions["0,0"].UUID !== "com.ashton.livepin.menu-back") {
 			throw new Error("Back action missing from top-left key");
 		}
+
+		if (rootManifest.PreconfiguredName !== profileName) {
+			throw new Error(`PreconfiguredName (${rootManifest.PreconfiguredName}) must match profile bundle name (${profileName})`);
+		}
+
+		if (rootManifest.Device?.UUID !== "") {
+			throw new Error("Device.UUID must be an empty string in bundled profiles");
+		}
+
+		if (keypad.Actions["0,0"].Plugin) {
+			throw new Error("Bundled actions must not include a Plugin block");
+		}
 	} finally {
 		rmSync(extractDir, { recursive: true, force: true });
 	}
 }
 
-function buildProfile({ name, columns, rows, deviceModel, deviceName }) {
+function buildProfile({ name, columns, rows, deviceModel }) {
 	const extractDir = join(tmpdir(), `livepin-profile-${randomUUID()}`);
 
 	try {
@@ -181,16 +187,15 @@ function buildProfile({ name, columns, rows, deviceModel, deviceName }) {
 		const rootManifest = {
 			Device: {
 				Model: deviceModel,
-				Name: deviceName,
-				UUID: "00000000-0000-0000-0000-000000000000",
+				UUID: "",
 			},
 			Name: "Pin Links",
+			PreconfiguredName: name,
 			Pages: {
 				Current: pageId,
-				Default: pageId,
 				Pages: [pageId],
 			},
-			Version: "3.0",
+			Version: "2.0",
 		};
 
 		writeFileSync(join(profileRoot, "manifest.json"), JSON.stringify(rootManifest));
@@ -200,7 +205,7 @@ function buildProfile({ name, columns, rows, deviceModel, deviceName }) {
 
 		rmSync(outputPath, { force: true });
 		packProfile(profileRoot, outputPath);
-		validateProfile(outputPath, linkSlots);
+		validateProfile(outputPath, linkSlots, name);
 
 		console.log(`Generated ${outputPath} (${linkSlots} link slots + back, ${deviceModel})`);
 	} finally {
