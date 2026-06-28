@@ -1,20 +1,30 @@
 import AdmZip from "adm-zip";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const PLUGIN_DIR = "com.ashton.livepin.sdPlugin";
-const TEMPLATE_DIR = "scripts/profile-templates";
-const PLUGIN_VERSION = "0.1.0.0";
+const PLUGIN_VERSION = JSON.parse(readFileSync("package.json", "utf8")).version;
 
 const PROFILES = [
-	{ name: "menu-sd", template: "menu-sd.template", columns: 5, rows: 3, deviceModel: "20GBA9901", deviceName: "Stream Deck MK.2" },
-	{ name: "menu-sdmini", template: "menu-sdmini.template", columns: 3, rows: 2, deviceModel: "20GBA9903", deviceName: "Stream Deck Mini" },
-	{ name: "menu-sdxl", template: "menu-sdxl.template", columns: 8, rows: 4, deviceModel: "20GBA9911", deviceName: "Stream Deck XL" },
-	{ name: "menu-sdp", template: "menu-sdp.template", columns: 4, rows: 2, deviceModel: "10GBD9901", deviceName: "Stream Deck +" },
-	{ name: "menu-sdneo", template: "menu-sdneo.template", columns: 4, rows: 2, deviceModel: "20GBJ9901", deviceName: "Stream Deck Neo" },
+	{ name: "menu-sd", columns: 5, rows: 3, deviceModel: "20GBA9901", deviceName: "Stream Deck MK.2" },
+	{ name: "menu-sdmini", columns: 3, rows: 2, deviceModel: "20GBA9903", deviceName: "Stream Deck Mini" },
+	{ name: "menu-sdxl", columns: 8, rows: 4, deviceModel: "20GBA9911", deviceName: "Stream Deck XL" },
+	{ name: "menu-sdp", columns: 4, rows: 2, deviceModel: "10GBD9901", deviceName: "Stream Deck +" },
+	{ name: "menu-sdneo", columns: 4, rows: 2, deviceModel: "20GBJ9901", deviceName: "Stream Deck Neo" },
 ];
+
+function randomPageId() {
+	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+	let id = "";
+
+	for (let index = 0; index < 26; index += 1) {
+		id += chars[Math.floor(Math.random() * chars.length)];
+	}
+
+	return id;
+}
 
 function gridPositions(columns, rows, skip = [{ column: 0, row: 0 }]) {
 	const positions = [];
@@ -78,37 +88,6 @@ function buildMenuActions(columns, rows) {
 	return actions;
 }
 
-function findSdProfileRoot(extractDir) {
-	const entry = readdirSync(extractDir).find((name) => name.endsWith(".sdProfile"));
-	if (!entry) {
-		throw new Error(`No .sdProfile folder found in ${extractDir}`);
-	}
-
-	return join(extractDir, entry);
-}
-
-function findMenuPageDir(profileRoot) {
-	const pagesDir = join(profileRoot, "Profiles");
-	const pageIds = readdirSync(pagesDir).filter((name) => statSync(join(pagesDir, name)).isDirectory());
-
-	let bestPage = pageIds[0];
-	let bestCount = -1;
-
-	for (const pageId of pageIds) {
-		const manifestPath = join(pagesDir, pageId, "manifest.json");
-		const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-		const keypad = manifest.Controllers?.find((controller) => controller.Type === "Keypad");
-		const count = Object.keys(keypad?.Actions ?? {}).length;
-
-		if (count > bestCount) {
-			bestCount = count;
-			bestPage = pageId;
-		}
-	}
-
-	return join(pagesDir, bestPage);
-}
-
 function packProfile(profileRoot, outputPath) {
 	const folderName = profileRoot.split(/[/\\]/).pop();
 	const zip = new AdmZip();
@@ -133,46 +112,97 @@ function packProfile(profileRoot, outputPath) {
 	zip.writeZip(outputPath);
 }
 
-function buildProfile({ name, template, columns, rows, deviceModel, deviceName }) {
-	const templatePath = join(TEMPLATE_DIR, template);
-	const extractDir = mkdtempSync(join(tmpdir(), "livepin-profile-"));
+function validateProfile(outputPath, expectedSlots) {
+	const zip = new AdmZip(outputPath);
+	const extractDir = join(tmpdir(), `livepin-profile-validate-${randomUUID()}`);
 
 	try {
-		const zip = new AdmZip(templatePath);
 		zip.extractAllTo(extractDir, true);
+		const profileRoot = readdirSync(extractDir).find((name) => name.endsWith(".sdProfile"));
 
-		const profileRoot = findSdProfileRoot(extractDir);
-		const pageDir = findMenuPageDir(profileRoot);
-		const pageManifestPath = join(pageDir, "manifest.json");
-		const pageManifest = JSON.parse(readFileSync(pageManifestPath, "utf8"));
-		const menuActions = buildMenuActions(columns, rows);
-
-		for (const controller of pageManifest.Controllers) {
-			if (controller.Type === "Keypad") {
-				controller.Actions = menuActions;
-			}
+		if (!profileRoot) {
+			throw new Error(`Missing .sdProfile folder in ${outputPath}`);
 		}
 
-		writeFileSync(pageManifestPath, JSON.stringify(pageManifest));
+		const rootManifest = JSON.parse(readFileSync(join(extractDir, profileRoot, "manifest.json"), "utf8"));
+		const pageId = rootManifest.Pages?.Current;
 
-		const rootManifestPath = join(profileRoot, "manifest.json");
-		const rootManifest = JSON.parse(readFileSync(rootManifestPath, "utf8"));
+		if (!pageId || !rootManifest.Pages.Pages?.includes(pageId)) {
+			throw new Error(`Pages.Current (${pageId}) is not listed in Pages.Pages`);
+		}
 
-		rootManifest.Name = "Pin Links";
-		rootManifest.Version = "3.0";
-		rootManifest.Device = {
-			Model: deviceModel,
-			Name: deviceName,
-			UUID: "00000000-0000-0000-0000-000000000000",
+		const pageManifestPath = join(extractDir, profileRoot, "Profiles", pageId, "manifest.json");
+
+		if (!statSync(pageManifestPath).isFile()) {
+			throw new Error(`Missing page manifest for ${pageId}`);
+		}
+
+		const pageManifest = JSON.parse(readFileSync(pageManifestPath, "utf8"));
+		const keypad = pageManifest.Controllers?.find((controller) => controller.Type === "Keypad");
+		const actionCount = Object.keys(keypad?.Actions ?? {}).length;
+		const expectedActions = expectedSlots + 1;
+
+		if (actionCount !== expectedActions) {
+			throw new Error(`Expected ${expectedActions} actions, found ${actionCount}`);
+		}
+
+		if (!keypad.Actions["0,0"] || keypad.Actions["0,0"].UUID !== "com.ashton.livepin.menu-back") {
+			throw new Error("Back action missing from top-left key");
+		}
+	} finally {
+		rmSync(extractDir, { recursive: true, force: true });
+	}
+}
+
+function buildProfile({ name, columns, rows, deviceModel, deviceName }) {
+	const extractDir = join(tmpdir(), `livepin-profile-${randomUUID()}`);
+
+	try {
+		const profileId = randomUUID().toUpperCase();
+		const profileRoot = join(extractDir, `${profileId}.sdProfile`);
+		const pageId = randomPageId();
+		const pageDir = join(profileRoot, "Profiles", pageId);
+
+		mkdirSync(join(pageDir, "Images"), { recursive: true });
+
+		const pageManifest = {
+			Controllers: [
+				{
+					Type: "Keypad",
+					Actions: buildMenuActions(columns, rows),
+				},
+			],
+			Icon: "",
+			Name: "",
 		};
 
-		writeFileSync(rootManifestPath, JSON.stringify(rootManifest));
+		writeFileSync(join(pageDir, "manifest.json"), JSON.stringify(pageManifest));
+
+		const rootManifest = {
+			Device: {
+				Model: deviceModel,
+				Name: deviceName,
+				UUID: "00000000-0000-0000-0000-000000000000",
+			},
+			Name: "Pin Links",
+			Pages: {
+				Current: pageId,
+				Default: pageId,
+				Pages: [pageId],
+			},
+			Version: "3.0",
+		};
+
+		writeFileSync(join(profileRoot, "manifest.json"), JSON.stringify(rootManifest));
 
 		const outputPath = join(PLUGIN_DIR, `${name}.streamDeckProfile`);
+		const linkSlots = columns * rows - 1;
+
 		rmSync(outputPath, { force: true });
 		packProfile(profileRoot, outputPath);
+		validateProfile(outputPath, linkSlots);
 
-		console.log(`Generated ${outputPath} (${columns * rows - 1} link slots, ${deviceModel})`);
+		console.log(`Generated ${outputPath} (${linkSlots} link slots + back, ${deviceModel})`);
 	} finally {
 		rmSync(extractDir, { recursive: true, force: true });
 	}

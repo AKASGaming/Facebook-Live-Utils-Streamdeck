@@ -4,7 +4,7 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "rollup -c",
+        "build": "node scripts/generate-menu-profile.mjs && rollup -c",
         "watch": "rollup -c -w --watch.onEnd=\"streamdeck restart com.ashton.livepin\"",
         "icons": "node scripts/generate-icons.mjs",
         "profiles": "node scripts/generate-menu-profile.mjs",

@@ -10,15 +10,25 @@ export class LinkMenu extends SingletonAction {
 	}
 
 	override async onKeyDown(ev: KeyDownEvent): Promise<void> {
+		const profileName = getMenuProfileName(ev.action.device);
+
 		try {
 			const status = await loadMenuLinks(await getBridgeUrl());
 			await populateMenuItems(status.links, status.pinnedLinkId);
-			const profileName = getMenuProfileName(ev.action.device);
-			streamDeck.logger.info(`Switching to menu profile: ${profileName} for device type ${ev.action.device.type}`);
+		} catch (error) {
+			streamDeck.logger.error(`Failed to load links for menu: ${error}`);
+			await ev.action.setTitle("No links");
+			await ev.action.showAlert();
+			return;
+		}
+
+		try {
+			streamDeck.logger.info(`Switching to menu profile: ${profileName} (device type ${ev.action.device.type})`);
 			await streamDeck.profiles.switchToProfile(ev.action.device.id, profileName);
+			await ev.action.setTitle("Links");
 			await ev.action.showOk();
 		} catch (error) {
-			streamDeck.logger.error(`Failed to open link menu: ${error}`);
+			streamDeck.logger.error(`Failed to switch to menu profile "${profileName}": ${error}`);
 			await ev.action.setTitle("Install profile");
 			await ev.action.showAlert();
 		}
